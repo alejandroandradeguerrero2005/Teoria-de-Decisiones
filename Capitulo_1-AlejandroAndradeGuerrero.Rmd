@@ -1,0 +1,109 @@
+---
+title: "Capitulo 1"
+name: "Alejandro Andrade Guerrero"
+date: "19/03/2025"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 1
+    theme: cerulean
+---
+
+```{=html}
+<style>
+body {
+text-align: justify}
+</style>
+```
+
+```{=html}
+<style type="text/css">
+body{/*Normal*/
+     font-size: 20px;
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(discrtr) 
+library(mlogit)
+library(readr) 
+library(plotly)
+```
+
+
+```{r}
+data("Mode")
+```
+
+
+```{r}
+glimpse(Mode)
+```
+La variable choice es de tipo categórico, en contraste con las otras ocho variables que son de tipo numérico o cuantitativo.
+
+
+
+```{r}
+summary(Mode)
+```
+Se identifican cuatro medios de transporte (automóvil, coche compartido, autobús y tren), donde el automóvil es el preferido con 218 casos registrados, y el coche compartido es el menos elegido, con solo 32 casos
+
+```{r}
+ggplot(Mode)+
+  geom_bar(aes(choice, fill=choice), color="black", show.legend = FALSE)+
+  theme_bw()
+```
+
+
+```{r}
+ggplot(Mode)+
+  geom_density(aes(cost.car, fill="car"), color="black", alpha=0.5)+
+  geom_density(aes(cost.carpool , fill="carpool"), color="black", alpha=0.5)+
+  geom_density(aes(cost.bus, fill="bus"), color="black", alpha=0.5)+
+  geom_density(aes(cost.rail, fill="rail"), color="black", alpha=0.5)+
+  scale_fill_manual(values=c("car"= "red", "carpool"="purple", "bus"="green", "rail"="pink"), name="Mode")+
+  xlab("Cost")+
+theme_bw()
+  
+```
+El automóvil es el medio de transporte con el costo más elevado, mientras que el carpool es la opción más económica.
+
+
+```{r}
+grafica_time <- ggplot(Mode)+
+  geom_density(aes(time.car, fill="car"), color="black", alpha=0.5)+
+  geom_density(aes(time.carpool , fill="carpool"), color="black", alpha=0.5)+
+  geom_density(aes(time.bus, fill="bus"), color="black", alpha=0.5)+
+  geom_density(aes(time.rail, fill="rail"), color="black", alpha=0.5)+
+  scale_fill_manual(values=c("car"= "firebrick", "carpool"="dodgerblue", "bus"="darkgoldenrod2", "rail"="cyan"), name="Mode")+
+  xlab("Time")+
+theme_bw()
+
+
+ggplotly(grafica_time)  
+```
+El automóvil suele ser más rápido, mientras que el autobús o el tren pueden experimentar retrasos y demoras con mayor frecuencia.
+
+
+```{r}
+varnum <- Mode |> dplyr::select(where(is.numeric))
+varnum <- names(varnum)
+
+for (var in varnum) {
+grafica_box <- ggplot(Mode)+
+  geom_boxplot(aes(choice, eval(as.name(var)), fill=choice), show.legend=FALSE)+
+  ylab(var)+
+  theme_bw()
+  
+  print(grafica_box)
+    
+}
+
+
+
+```
+Se opta por el carpool y el autobús principalmente por ser opciones más económicas, mientras que el automóvil, aunque ofrece mayor rapidez, resulta más costoso.
