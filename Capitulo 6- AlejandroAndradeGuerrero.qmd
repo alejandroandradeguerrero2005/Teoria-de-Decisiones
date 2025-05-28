@@ -1,0 +1,204 @@
+---
+title: "Capitulo 6"
+Author: "Alejandro Andrade Guerrero"
+date: "25/05/20255"
+format: html
+editor: visual
+---
+
+```{r}
+
+#| code-fold: true
+#| message: false
+#| warning: false
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(knitr)
+library(tidyverse)
+library(discrtr) # A companion package for the book Introduction to Discrete Choice Analysis with `R`
+library(dplyr) # A Grammar of Data Manipulation
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(mlogit) # Multinomial Logit Models
+library(readr) # Read Rectangular Text Data
+library(gplots) # Various R Programming Tools for Plotting Data
+library(ggmosaic) # Mosaic Plots in the 'ggplot2' Framework
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(kableExtra) # Construct Complex Table with kable and Pipe Syntax
+library(plotly) # Create interactive web graphics
+library(tidyr) # Tidy messy data
+#library(webshot2) # Take screenshots of web pages
+
+library(evd)
+```
+
+# 1. What is the difference between a marginal effect and an elasticity?
+
+-   **Efecto marginal:** Es el cambio absoluto que ocurre en una variable cuando se incrementa en una unidad otra variable relacionada. Por ejemplo, el ingreso marginal es el aumento en el ingreso total al vender una unidad adicional. Se usa para analizar cómo varían cantidades específicas ante cambios pequeños y es clave para decisiones económicas como maximizar beneficios.
+
+-   **Elasticidad:** Es la medida de la variación porcentual de una variable ante un cambio porcentual en otra. Por ejemplo, la elasticidad precio de la demanda indica el cambio porcentual en la cantidad demandada cuando el precio cambia un cierto porcentaje. Permite comparar la sensibilidad relativa entre variables en distintos contextos y niveles.
+
+# 2. Why is it inappropriate to calculate the elasticity of a dummy variable?
+
+Calcular la elasticidad de una variable dummy es inapropiado porque la elasticidad mide cambios porcentuales relativos, pero una variable dummy solo toma valores 0 o 1, es decir, cambios discretos y no proporcionales. Por eso, no tiene sentido calcular un cambio porcentual en la dummy, ni usar la fórmula clásica de elasticidad, que requiere variaciones continuas o proporcionales. En cambio, el coeficiente de una dummy en regresión indica un efecto diferencial o cambio absoluto entre grupos, no una elasticidad.
+
+# 3. UseModel 3 in this chapter and calculate the marginal effects and the elasticities for operating cost at the mean of all variables.
+
+```{r}
+#| code-fold: true
+
+data("Heating")
+glimpse(Heating)
+```
+
+### Calculo de los efectos marginales
+
+```{r}
+#| code-fold: true
+
+mean_data <- Heating[1, ] 
+mean_ic <- Heating %>% select(starts_with("ic")) %>% summarise(across(everything(), mean))
+mean_oc <- Heating %>% select(starts_with("oc")) %>% summarise(across(everything(), mean))
+
+mean_data[3:7] <- mean_ic  
+mean_data[8:12] <- mean_oc 
+
+mean_data_mlogit <- mlogit.data(
+  mean_data, 
+  shape = "wide", 
+  choice = "depvar", 
+  varying = 3:12
+)
+
+model3 <- mlogit(
+  depvar ~ ic + oc, 
+  data = Heating,
+  shape = "wide", 
+  choice = "depvar", 
+  reflevel = "ec",
+  varying = c(3:12) 
+)
+
+ 
+effects(
+  model3, 
+  covariate = "oc", 
+  type = "ra",  
+  data = mean_data_mlogit
+)
+```
+
+### Calculo de las elasticidades
+
+```{r}
+#| code-fold: true
+
+effects(
+  model3, 
+  covariate = "oc", 
+  type = "rr",  # Elasticidad (Relative)
+  data = mean_data_mlogit
+)
+
+```
+
+# 4. Use Model 3 in this chapter to calculate the rebate needed to reach a 10% penetration rate of heat pumps.
+
+```{r}
+#| code-fold: true
+
+model3 <- mlogit(
+  depvar ~ ic + oc, 
+  data = Heating,
+  shape = "wide", 
+  choice = "depvar", 
+  reflevel = "ec",
+  varying = c(3:12) 
+)
+
+```
+
+```{r}
+#| code-fold: true
+
+
+
+f <- function(r) {
+  H_rebate <- Heating %>% mutate(ic.hp = ic.hp * (1 - r))
+  
+  H_rebate_mlogit <- mlogit.data(
+    H_rebate,
+    shape = "wide",
+    choice = "depvar",
+    varying = 3:12
+  )
+
+  pred <- predict(model3, newdata = H_rebate_mlogit)
+
+  mean_hp <- mean(pred[, "hp"])
+  
+  return(mean_hp - 0.10)
+}
+```
+
+```{r}
+#| code-fold: true
+
+#Aplicando la función anterior
+resultado <- uniroot(f, interval = c(0, 1), tol = 0.001)
+rebate_required <- resultado$root
+rebate_required*100
+```
+
+# Estimate a new model that extends Model 3 by introducing the age of the household head. Use the electric room system (“er”) as the reference level.
+
+# 5. Use the likelihood ratio test to compare your new model to Model 3. Discuss the results.
+
+```{r}
+#| code-fold: true
+
+# Modelo 3 con referencia "er"
+model3_er <- mlogit(
+  depvar ~ ic + oc,
+  data = Heating,
+  shape = "wide",
+  choice = "depvar",
+  reflevel = "er",  
+  varying = c(3:12) 
+)
+summary(model3_er)
+```
+
+```{r}
+#| code-fold: true
+
+
+model4 <- mlogit(
+  depvar ~ ic + oc | agehed,
+  data = Heating,
+  shape = "wide",
+  choice = "depvar",
+  reflevel = "er",
+  varying = c(3:12)
+)
+summary(model4)
+```
+
+```{r}
+#| code-fold: true
+
+# Prueba
+library(lmtest)
+
+lrtest(model3_er, model4)
+```
+
+### 
+
+La inclusión de la variable agehed en el Modelo mejora ligeramente el ajuste del modelo, aunque su impacto es limitado. Esto sugiere que la edad influye en la preferencia por sistemas de calefacción, sobre todo en EC, aunque el resultado no alcanza significancia estadística, situándose cerca del umbral común de 0.05, lo que indica que con una muestra más amplia o un modelo ligeramente ajustado podría llegar a ser relevante. Por tanto, aunque no es concluyente, este hallazgo merece atención en futuros análisis para explorar mejor la relación entre la edad y las preferencias de calefacción.
+
+# 6. Is the ratio of the coefficient of installation (or operation) cost to the coefficient of age of household head meaningful? Explain.
+
+La razón entre el coeficiente del costo de instalación y el coeficiente de la edad del jefe de hogar no es significativa ni interpretable, porque miden efectos en unidades diferentes (dólares vs. años) y no son comparables directamente. Además, esta relación no considera la variabilidad ni la significancia estadística de los coeficientes. Para evaluar la importancia relativa de estas variables, es mejor usar coeficientes estandarizados, elasticidades o análisis de contribución, en lugar de calcular su cociente.
